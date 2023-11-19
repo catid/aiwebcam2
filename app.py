@@ -11,6 +11,9 @@ sio = socketio.AsyncServer(cors_allowed_origins='*')
 from service_asr import ASRServiceRunner
 asr_runner = ASRServiceRunner()
 
+from service_llm import LLMServiceRunner
+llm_runner = LLMServiceRunner()
+
 # WebRTC peer listening for a single browser to connect
 # We run each WebRTC peer in a separate process to avoid stalls in playback
 
@@ -28,11 +31,6 @@ import base64
 
 import numpy as np
 import time
-
-# OpenAI
-import api_key
-import openai
-client = openai.OpenAI(api_key=api_key.api_key)
 
 # WebRTC Connection
 
@@ -317,31 +315,18 @@ class Session:
         prompt_messages = self.chat.to_prompt()
 
         #logger.info(f"prompt_messages = {prompt_messages}")
+        await llm_runner.CompletionBegin(prompt_messages)
 
-        try:
+        text = ""
 
-            response = client.chat.completions.create(
-                model="gpt-4-vision-preview",
-                messages=prompt_messages,
-                temperature=0.5,
-                max_tokens=4096,
-                n=1,
-                stream=True
-            )
+        while True:
+            r = await llm_runner.CompletionPoll()
+            if r is None:
+                break
+            text = r
+            await self.on_response_part(text)
+        await self.on_response(text)
 
-            fulltext = ""
-
-            for completion in response:
-                text = completion.choices[0].delta.content
-                if text:
-                    fulltext += text
-
-                    await self.on_response_part(fulltext)
-
-            await self.on_response(fulltext)
-
-        except Exception as e:
-            await self.on_response(f"Unexpected exception {e}")
 
 class SessionManager:
     def __init__(self):
@@ -495,6 +480,7 @@ async def record_message(sid, data):
                         image = recorded_frame.to_ndarray(format='yuv420p')
 
                         line = session.chat.append_line(session.user_name, message, image)
+
                         await sio.emit("add_chat_message", {"id": line.id, "sender": line.sender, "message": line.message}, room=sid)
 
                         await session.get_response()
@@ -620,7 +606,7 @@ def main():
         logger.info("Terminating background services")
 
         asr_runner.close()
-        #tts_runner.close()
+        llm_runner.close()
 
 if __name__ == "__main__":
     main()

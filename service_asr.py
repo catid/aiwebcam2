@@ -1,20 +1,4 @@
 # Service that uses an ASR model to recognize the language and transcribe the audio
-# Uses pydub to identify silence in the input and trims it out for speed and to detect empty input which is probably common
-# Resamples to 16kHz
-# Runs on GPU with 16-bit precision
-# Runs in a background process and accessed via multiprocessing Queues
-# Provides an asyncio-compatible interface to the API
-
-
-# Example usage:
-#
-#       pcm_data, sample_rate = sf.read('jfk.wav')
-#
-#       runner = ASRServiceRunner()
-#       text = runner.TranslateFloat(pcm_audio, sample_rate)
-#       runner.close()
-#
-# You can also use it from asyncio code with TranslateFloatAsync()
 
 import numpy as np
 import soundfile as sf
@@ -150,7 +134,7 @@ class ASRService:
                 self.response_queue.put(result)
 
 # This is run from a background process
-def run_asr_loop(command_queue: Queue, response_queue: Queue):
+def run_loop(command_queue: Queue, response_queue: Queue):
     service = ASRService(command_queue, response_queue)
     service.run()
 
@@ -164,7 +148,7 @@ class ASRServiceRunner:
         self.command_queue = Queue()
         self.response_queue = Queue()
         self.service_process = Process(
-            target=run_asr_loop,
+            target=run_loop,
             args=(self.command_queue, self.response_queue))
         self.service_process.start()
 

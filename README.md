@@ -10,7 +10,7 @@ Implemented with latest Whisper3 + GPT-4-Vision + OpenAI TTS and a WebRTC browse
 
 ## Prerequisites
 
-Designed for Ubuntu server with an RTX 4090 GPU.  It might work with other setups, but I have only tested this one.
+Designed for Ubuntu server with an Nvidia GPU.  It might work with other setups, but I have only tested this one.
 
 You'll want to set up Conda first: https://docs.conda.io/en/latest/miniconda.html
 
@@ -31,7 +31,7 @@ cd aiwebcam
 # Follow instructions from https://pytorch.org/get-started/locally/
 #pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
-pip install -r requirements.txt
+pip install -U -r requirements.txt
 
 openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 3650
 # Press enter to accept defaults for all questions
@@ -43,12 +43,13 @@ openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 36
 python app.py
 ```
 
-Open a Chrome browser to https://localhost:8080
-
-Replacing `localhost` with the name of the computer on your LAN in the address bar.
+Open a Chrome browser to https://localhost:8443
+On my network I host it on a server at https://gpu3.lan:8443
 
 When you get the `Your connection is not private` screen, click `Advanced` and then `Proceed to localhost (unsafe)`.
 
-When you see the "localhost:8080 wants to: Use your camera" permission popup, select `[Allow]`.
+When you see the "localhost:8443 wants to: Use your camera" permission popup, select `[Allow]`.
 
-You should see the webcam feed in the browser window.  Press and hold the `[space bar]` on the keyboard to speak.  Release the `[space bar]` to stop speaking.  The AI will respond to what you say, and it will be provided a picture from the webcam stream so that it can see you for context.
+You should see the webcam feed in the browser window.  Click or press and hold the `[space bar]` on the keyboard to speak.  The AI will respond to what you say, and it will be provided a picture from the webcam stream so that it can see you for context.
+
+Include "look" in your query to use more tokens to improve its eyesight.  Include "remember" to keep a high resolution image for the remainder of the session.
