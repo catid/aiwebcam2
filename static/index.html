@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Webcam</title>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    <link rel="stylesheet" type="text/css" href="chat.css">
+    <link rel="stylesheet" type="text/css" href="entry.css">
+    <link rel="stylesheet" type="text/css" href="video.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <div id="body-content">
+        <h1>
+            <img src="logo64.png" alt="Logo" id="logo">
+            AI Webcam
+        </h1>
+
+        <div id="video-container">
+            <div id="placeholder">Establishing connection...</div>
+            <video id="video" muted autoplay playsinline>
+                Your browser does not support the video element.
+            </video>
+            <audio id="audio" autoplay playsinline>
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+
+        <div id="instructions">
+            Click the page to speak to the model.  Release the mouse to execute the query.
+            Include "look" to increase webcam resolution (uses more tokens).
+            Include "remember" to increase webcam resolution and keep the image on the timeline.
+        </div>
+    
+        <div id="conversation"></div>
+    
+        <div id="talk-instruction-container">
+            <div id="recordingDot"></div>
+            <span id="talk-instruction">Loading...</span>
+        </div>
+
+        <div id="message-input-container">
+            <span id="humanLabel">Human</span>
+            <textarea id="textInput" placeholder="Type here..."></textarea>
+            <button id="sendButton" class="send">Send</button>
+        </div>   
+    
+        <div id="name-entry-container">
+            <div class="input-fields">
+                <div class="input-group">
+                    <label for="user-name">Your Name:</label>
+                    <input type="text" id="user-name" name="user-name" value="Human">
+                </div>
+                <div class="input-group">
+                    <label for="ai-name">AI Name:</label>
+                    <input type="text" id="ai-name" name="ai-name" value="AI">
+                </div>
+            </div>
+            <button id="nameButton">Change</button>
+        </div>
+        <div id="social-links-container">
+            <div id="social-links">
+                <a href="https://github.com/catid/aiwebcam" target="_blank">GitHub Repo</a> | <a href="https://twitter.com/mrcatid/" target="_blank">Twitter</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

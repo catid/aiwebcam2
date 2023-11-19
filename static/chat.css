@@ -1,0 +1,68 @@
+@font-face {
+    font-family: 'Fira Code';
+    src: url('FiraCode-Regular.woff2') format('woff2'),
+         url('FiraCode-Regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+.chat-tag {
+    font-family: 'Fira Code', monospace;
+    color: white;
+}
+
+/* Make the container of each message and delete button a flex container */
+.chat-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+/* Style for the message */
+.chat-text p {
+    margin-right: 10px; /* Add some space between the message and the button */
+    white-space: pre-wrap;
+}
+
+/* Style for the delete button */
+.delete-button {
+    background-color: transparent;
+    border: none;
+    color: red; /* Make the 'X' red */
+    cursor: pointer;
+}
+
+/* AI> Hello */
+
+.ai-tag {
+    color: #ff0000;
+    font-family: 'Fira Code', monospace;
+}
+
+.ai-separator {
+    color: white;
+    font-family: 'Fira Code', monospace;
+}
+
+.ai-message {
+    color: #fdb3c6; /* Bright White-Orange for AI */
+    font-family: 'Fira Code', monospace;
+}
+
+/* Human> Hello */
+
+.human-tag {
+    color: #ff9900;
+    font-family: 'Helvetica', sans-serif;
+}
+
+.human-separator {
+    color: white;
+    font-family: 'Helvetica', sans-serif;
+}
+
+.human-message {
+    color: #ffd3b0; /* Bright White-Pink for Human */
+    font-family: 'Helvetica', sans-serif;
+}

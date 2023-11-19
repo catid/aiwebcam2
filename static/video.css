@@ -1,0 +1,30 @@
+#video-container {
+    position: relative;
+    width: 80%;
+    height: auto;
+    margin: 0 auto;
+}
+
+#placeholder {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1; 
+}
+
+#video {
+    max-height: 720px;
+    width: 100%;
+    object-fit: cover;
+    border: 3px solid lime;
+    z-index: 0;
+}
+
+#audio {
+    display: none;
+}

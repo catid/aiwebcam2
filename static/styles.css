@@ -1,0 +1,116 @@
+/* Frames */
+
+* {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+html {
+    overflow-y: scroll;
+    overflow-x: hidden; /* Hide horizontal scrollbar */
+    padding-right: scrollbar-width;
+}
+
+h1 {
+    display: flex;
+    align-items: center;
+}
+
+#logo {
+    height: 50px;
+    margin-right: 10px;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+
+    background-color: black;
+    color: lime;
+    font-family: monospace;
+
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: 100vw;
+    height: 100vh;
+
+    user-select: none;
+    -webkit-user-select: none;  /* Chrome and Safari */
+    -moz-user-select: none;  /* Firefox */
+    -ms-user-select: none;  /* IE/Edge */
+
+    background-color: #202020;
+
+    background-image: 
+    /* Each square has a gradient from top left to bottom right */
+    linear-gradient(45deg, rgba(16, 16, 16, 0.5) 50%, rgba(48, 48, 48, 0.0) 50%),
+    linear-gradient(45deg, rgba(32, 32, 32, 0.0) 50%, rgba(64, 64, 64, 0.5) 50%),
+    linear-gradient(45deg, rgba(16, 16, 16, 0.5) 50%, rgba(48, 48, 48, 0.0) 50%),
+    linear-gradient(45deg, rgba(32, 32, 32, 0.0) 50%, rgba(64, 64, 64, 0.5) 50%);
+
+    /* Size for each pattern (prime numbers for non-repeating pattern) */
+    background-size: 
+    53px 53px, /* Pattern 1 */
+    79px 79px, /* Pattern 2 */
+    113px 113px, /* Pattern 3 */
+    127px 127px; /* Pattern 4 */
+
+    /* Repeat all patterns */
+    background-repeat: repeat;
+}
+
+#body-content {
+    padding: 20px;
+    flex: 1 0 auto;  /* This will make the content expand to take up available space, pushing social links down */
+    max-width: 1000px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+#conversation {
+    flex: 1; /* Make conversation div take the remaining space */
+    margin-top: 20px;
+    margin-bottom: 20px;
+    overflow: auto;
+    border: 2px solid lime;
+    padding: 10px;
+    color: lime;
+    font-size: 1.2em;
+    white-space: pre-line;
+    min-height: 200px;
+    max-height: 500px;
+    background-color: rgb(26, 26, 26);
+
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+}
+
+#social-links-container {
+    margin-top: auto;
+    text-align: center;
+    padding-top: 100px;
+    margin-bottom: 10px;
+}
+
+#social-links {
+    margin-top: auto;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+a {
+    color: lime;
+}
+
+@media screen and (max-width: 600px) {
+    body {
+        margin: 0;
+        padding: 0;
+    }
+    /* additional CSS rules for screens less than or equal to 600px wide go here */
+}
