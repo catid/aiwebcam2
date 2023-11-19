@@ -18,7 +18,7 @@ llm_runner = LLMServiceRunner()
 # We run each WebRTC peer in a separate process to avoid stalls in playback
 
 from aiortc import RTCIceCandidate, RTCSessionDescription, RTCPeerConnection
-from aiortc.mediastreams import AudioStreamTrack, VideoStreamTrack, MediaStreamError
+from aiortc.mediastreams import AudioStreamTrack, VideoStreamTrack, MediaStreamError, MediaStreamTrack
 from queue import Queue
 from fractions import Fraction
 import asyncio
@@ -31,6 +31,335 @@ import base64
 
 import numpy as np
 import time
+
+import av, fractions
+import opuslib, samplerate
+
+# OGG/Opus Parser
+
+import struct
+
+class OggPageHeader:
+    def __init__(self, buffer, offset = 0):
+        self.buffer = buffer
+        self.offset = offset
+        self.is_id_page = False
+        self.is_comment_page = False
+        self.is_audio_page = False
+        self.page_segments = struct.unpack_from('B', buffer, offset + 26)[0]
+        self.header_size = 27 + self.page_segments
+
+        # Calculate total page size
+        self.page_sizes = struct.unpack_from('B' * self.page_segments, buffer, offset + 27)
+        self.page_size = sum(self.page_sizes)
+
+        self.version = struct.unpack_from('B', buffer, offset + 4)[0]
+        self.type = {
+            "continued_page": bool(struct.unpack_from('B', buffer, offset + 5)[0] & 1),
+            "first_page":     bool(struct.unpack_from('B', buffer, offset + 5)[0] & 2),
+            "last_page":      bool(struct.unpack_from('B', buffer, offset + 5)[0] & 4),
+        }
+        self.serial = format(struct.unpack_from('<I', buffer, offset + 14)[0], 'x')
+        self.checksum = format(struct.unpack_from('<I', buffer, offset + 22)[0], 'x')
+
+    @property
+    def granule_position(self):
+        return struct.unpack_from('<Q', self.buffer, self.offset + 6)[0]
+
+    @property
+    def page_sequence(self):
+        return struct.unpack_from('<I', self.buffer, self.offset + 18)[0]
+
+    @property
+    def is_first_page(self):
+        return self.type['first_page']
+
+    @property
+    def is_last_page(self):
+        return self.type['last_page']
+
+def read_opus_head(buffer, offset):
+    # Unpack the OpusHead structure
+    opus_head_format = '<8sBBHIhB'  # Little-endian byte order
+    opus_head_size = struct.calcsize(opus_head_format)
+
+    (magic_signature, version, channel_count, pre_skip, input_sample_rate, output_gain, channel_mapping) = struct.unpack_from(opus_head_format, buffer, offset)
+
+    # Convert bytes to a proper string for the magic signature
+    magic_signature = magic_signature.decode('utf-8')
+
+    # Additional channel mapping information if channel_mapping == 1
+    if channel_mapping == 1:
+        # Read additional fields
+        stream_count, coupled_stream_count = struct.unpack_from('<BB', buffer, offset + opus_head_size)
+        channel_mapping = struct.unpack_from(f'<{channel_count}B', buffer, offset + opus_head_size + 2)
+    else:
+        stream_count = coupled_stream_count = None
+
+    return {
+        'magic_signature': magic_signature,
+        'version': version,
+        'channel_count': channel_count,
+        'pre_skip': pre_skip,
+        'input_sample_rate': input_sample_rate,
+        'output_gain': output_gain,
+        'channel_mapping': channel_mapping,
+        'stream_count': stream_count,
+        'coupled_stream_count': coupled_stream_count
+    }
+
+class OpusFileSplitter:
+    def __init__(self, buffer):
+        self.buffer = buffer
+        self.audio_page_boundaries = []
+        self.header_bytes = None
+        self.info = None
+        self.parse_file(buffer)
+
+    def scan_pages(self, buffer, callback):
+        page_marker = struct.unpack('>I', b'OggS')[0]
+        opus_id_header_marker = struct.unpack('>Q', b'OpusHead')[0]
+        opus_comment_header_marker = struct.unpack('>Q', b'OpusTags')[0]
+
+        id_page_found = False
+        comment_page_found = False
+
+        i = 0
+        while i < len(buffer) - 4:
+            if page_marker != struct.unpack_from('>I', buffer, i)[0]:
+                i += 1
+                continue
+
+            if len(buffer) < i + 28:
+                break
+
+            page_header = OggPageHeader(buffer, i)
+
+            # FIXME: Technically you can get multiple streams tagged by serial, but in practice we only receive one.
+
+            if not id_page_found:
+                if opus_id_header_marker == struct.unpack_from('>Q', buffer, i + page_header.header_size)[0]:
+                    page_header.is_id_page = True
+                    id_page_found = True
+            elif not comment_page_found:
+                if opus_comment_header_marker == struct.unpack_from('>Q', buffer, i + page_header.header_size)[0]:
+                    page_header.is_comment_page = True
+                    comment_page_found = True
+            else:
+                page_header.is_audio_page = True
+
+            if page_header.page_size:
+                i += page_header.page_size
+            else:
+                i += 1
+
+            callback(page_header)
+
+    def parse_file(self, buffer):
+        audio_pages = []
+
+        def on_page(page_header):
+            nonlocal audio_pages
+            if page_header.is_audio_page:
+                audio_pages.append(page_header.offset)
+            if page_header.is_id_page:
+                self.info = read_opus_head(buffer, page_header.offset + page_header.header_size)
+
+        try:
+            self.scan_pages(buffer, on_page)
+        except:
+            pass # Handle any out of bounds reads by stopping the parsing early
+
+        if not audio_pages:
+            raise ValueError('Invalid Ogg Opus file. No audio pages found')
+
+        self.header_bytes = buffer[:audio_pages[0]]
+        self.audio_page_boundaries = audio_pages
+
+    # Returns None if no more data is available
+    def get_page(self, index):
+        boundaries = self.audio_page_boundaries
+        if index >= len(boundaries):
+            return None
+        bytes_start = boundaries[index]
+        end = index + 1
+        if end >= len(boundaries):
+            bytes_end = len(self.buffer)
+        else:
+            bytes_end = boundaries[end]
+
+        page_buffer = self.buffer[bytes_start:bytes_end]
+
+        page_header = OggPageHeader(page_buffer)
+
+        chunks = []
+
+        offset = page_header.header_size
+        for size in page_header.page_sizes:
+            end = offset + size
+
+            if end > len(page_buffer):
+                break
+
+            chunk = page_buffer[offset:end]
+            offset += size
+
+            chunks.append(chunk)
+
+        if len(chunks) <= 0:
+            return None
+
+        return chunks
+
+# TTS
+
+# OpenAI
+import api_key
+import openai, requests
+client = openai.OpenAI(api_key=api_key.api_key)
+
+def streamed_audio(input_text, voice='alloy', model='tts-1', speed=1.0):
+    t0 = time.time()
+
+    # OpenAI API endpoint and parameters
+    url = "https://api.openai.com/v1/audio/speech"
+    headers = {
+        "Authorization": f"Bearer {api_key.api_key}",
+    }
+
+    data = {
+        "model": model,
+        "input": input_text,
+        "speed": speed,
+        "voice": voice,
+        "response_format": "opus",
+    }
+
+    with requests.post(url, headers=headers, json=data, stream=True) as response:
+        if response.status_code != 200:
+            return False
+
+        buffer = b''
+
+        next_page_index = 0
+
+        for chunk in response.iter_content(chunk_size=16384):
+            buffer += chunk
+
+            logger.info("*** Got chunk")
+
+            parsed = OpusFileSplitter(buffer)
+
+            while True:
+                chunks= parsed.get_page(next_page_index)
+                if not chunks:
+                    break
+
+                t1 = time.time()
+                logger.info(f"Page {next_page_index} demuxed at t={(t1 - t0) * 1000.0} msec. count={len(chunks)}")
+
+                if parsed.info:
+                    channel_count = parsed.info["channel_count"]
+                    input_sample_rate = parsed.info["input_sample_rate"]
+
+                    #logger.info(f"Audio format: channel_count={channel_count} input_sample_rate={input_sample_rate}")
+
+                    for i, chunk in enumerate(chunks):
+                        with open(f"chunk{next_page_index}_{i}.opus", 'wb') as file:
+                            file.write(chunk)
+
+                    next_page_index += 1
+
+        parsed = OpusFileSplitter(buffer)
+
+        while True:
+            chunks= parsed.get_page(next_page_index)
+            if not chunks:
+                break
+
+            t1 = time.time()
+            logger.info(f"Page {next_page_index} demuxed at t={(t1 - t0) * 1000.0} msec. count={len(chunks)}")
+
+            if parsed.info:
+                channel_count = parsed.info["channel_count"]
+                input_sample_rate = parsed.info["input_sample_rate"]
+
+                #logger.info(f"Audio format: channel_count={channel_count} input_sample_rate={input_sample_rate}")
+
+                for i, chunk in enumerate(chunks):
+                    with open(f"chunk{next_page_index}_{i}.opus", 'wb') as file:
+                        file.write(chunk)
+
+                next_page_index += 1
+
+        with open(f"all_chunks.opus", 'wb') as file:
+            file.write(buffer)
+
+    return True
+
+streamed_audio("The BetterTransformer implementation does not support padding during training, as the fused kernels do not support attention masks. Beware that passing padded batched data during training may result in unexpected outputs. Please refer to https://huggingface.co/docs/optimum/bettertransformer/overview for more details.")
+
+logger.info("Done")
+
+exit()
+
+sample_rate = 48000
+
+# 20 milliseconds is a good trade off between latency and quality/size
+frame_size = int(0.020 * sample_rate)  # 20 ms * 48000 samples/s = 960 samples
+
+opus_encoder = opuslib.api.encoder.create_state(sample_rate, 1, opuslib.APPLICATION_AUDIO)
+
+output_file = io.BytesIO()
+output_container = av.open(output_file, format="opus", mode='w')
+output_audio_stream = output_container.add_stream('opus', rate=sample_rate)
+output_audio_stream.channels = 1
+output_audio_stream.rate = sample_rate
+
+def generate_pcm_floats_av_packets(pcm_floats, input_sample_rate):
+    packets = []
+
+    # Resample data from 22050 Hz to 48000 Hz
+    resampler = samplerate.Resampler('sinc_best', channels=1)
+    pcm_floats = resampler.process(np.array(pcm_floats), 48000 / input_sample_rate)
+
+    next_chunk_index = 0
+
+    # iterate over the data in chunks of frame_size
+    for i in range(0, len(pcm_floats), frame_size):
+        frame_chunk = pcm_floats[i:i + frame_size]
+
+        # if the last frame is shorter than frame_size, pad it with zeros
+        if len(frame_chunk) < frame_size:
+            frame_chunk = np.pad(frame_chunk, ((frame_size - len(frame_chunk)), (0)))
+
+        encoded_data = opuslib.api.encoder.encode_float(
+            opus_encoder,
+            frame_chunk.tobytes(),
+            frame_size,
+            frame_size * 4)
+
+        # Open the output file in binary write mode
+        with open("silence.opus", 'wb') as output_file:
+            logger.info(f"buffer len = {len(encoded_data)}")
+            output_file.write(encoded_data)
+
+        if encoded_data:
+            packet = av.packet.Packet(encoded_data)
+            packet.pts = next_chunk_index
+            packet.stream = output_audio_stream
+            packet.time_base = Fraction(1, sample_rate)
+
+            next_chunk_index += frame_size
+
+            packets.append(packet)
+
+    return packets
+
+silence_packets = generate_pcm_floats_av_packets(np.zeros(frame_size), 48000)
+
+exit()
+
 
 # WebRTC Connection
 
@@ -63,6 +392,130 @@ class VideoReceiver(VideoStreamTrack):
 
         return frame
 
+class CustomAudioStream(MediaStreamTrack):
+    kind = "audio"
+    
+    def __init__(self):
+        super().__init__()  # don't forget this!
+
+        self.q = Queue()
+        self._start = None
+
+        self.next_chunk_index = 0
+
+        self.sample_rate = 48000
+
+        # 20 milliseconds is a good trade off between latency and quality/size
+        self.frame_size = int(0.020 * self.sample_rate)  # 20 ms * 48000 samples/s = 960 samples
+
+        self.opus_encoder = opuslib.api.encoder.create_state(self.sample_rate, 1, opuslib.APPLICATION_AUDIO)
+
+        self.output_file = io.BytesIO()
+        self.output_container = av.open(self.output_file, format="opus", mode='w')
+        self.output_audio_stream = self.output_container.add_stream('opus', rate=self.sample_rate)
+        self.output_audio_stream.channels = 1
+        self.output_audio_stream.rate = self.sample_rate
+
+        self.silence_packets = self.generate_pcm_floats_av_packets(np.zeros(self.frame_size), 48000)
+
+        self.speak("Please put your text in my box and chat with me!")
+
+    async def close(self):
+        super().stop()
+        self.silence_packets = None
+        if self.opus_encoder:
+            opuslib.api.encoder.destroy(self.opus_encoder)
+            self.opus_encoder = None
+        if self.output_container:
+            self.output_container.close()
+            self.output_container = None
+        self.output_file = None
+        self.output_audio_stream = None
+
+    def next_pts(self):
+        self.next_chunk_index += self.frame_size
+        return self.next_chunk_index
+
+    def get_silence_packet(self):
+        packet = self.silence_packets[0]
+
+        packet.pts = self.next_pts()
+
+        return packet
+
+    def generate_pcm_floats_av_packets(self, pcm_floats, input_sample_rate):
+        packets = []
+
+        # Resample data from 22050 Hz to 48000 Hz
+        resampler = samplerate.Resampler('sinc_best', channels=1)
+        pcm_floats = resampler.process(np.array(pcm_floats), 48000 / input_sample_rate)
+
+        # iterate over the data in chunks of frame_size
+        for i in range(0, len(pcm_floats), self.frame_size):
+            frame_chunk = pcm_floats[i:i + self.frame_size]
+
+            # if the last frame is shorter than frame_size, pad it with zeros
+            if len(frame_chunk) < self.frame_size:
+                frame_chunk = np.pad(frame_chunk, ((self.frame_size - len(frame_chunk)), (0)))
+
+            encoded_data = opuslib.api.encoder.encode_float(
+                self.opus_encoder,
+                frame_chunk.tobytes(),
+                self.frame_size,
+                self.frame_size * 4)
+
+            if encoded_data:
+                packet = av.packet.Packet(encoded_data)
+                packet.pts = self.next_pts()
+                packet.stream = self.output_audio_stream
+                packet.time_base = Fraction(1, self.sample_rate)
+
+                packets.append(packet)
+
+        # Open the output file in binary write mode
+        with open("silence.opus", 'wb') as output_file:
+            for packet in packets:
+                # Write the raw packet data to the file
+                output_file.write(packet.to_bytes())
+
+        return packets
+
+    def add_pcm_floats(self, pcm_floats, input_sample_rate):
+        packets = self.generate_pcm_floats_av_packets(pcm_floats, input_sample_rate)
+
+        for packet in packets:
+            self.add_av_packet(packet)
+
+    def speak(self, message):
+        t0 = time.time()
+        pcm = tts.tts(message, speaker=tts_speaker)
+        t1 = time.time()
+        self.add_pcm_floats(pcm, tts_sample_rate)
+        t2 = time.time()
+
+        logger.info(f"TTS generated audio in {(t1-t0)/1000.0} compressed in {(t2-t1)/1000.0} milliseconds: message='{message}'")
+
+    def add_av_packet(self, packet):
+        self.q.put(packet)
+
+    async def recv(self):
+        try:
+            packet = self.q.get_nowait()
+        except:
+            packet = None # Ignore Empty exception
+
+        if not packet:
+            packet = self.get_silence_packet()
+
+        frame_time = packet.pts / self.sample_rate
+        if self._start is None:
+            self._start = time.time() - frame_time
+        else:
+            wait = self._start + frame_time - time.time()
+            await asyncio.sleep(wait)
+
+        return packet
+
 class WebRTCConnection:
     def __init__(self, sid):
         self.sid = sid
@@ -73,7 +526,11 @@ class WebRTCConnection:
         self.processing_audio = False
         self.recording = False
 
-        self.pc.on("icecandidate", lambda candidate: sio.emit("ice_candidate", {"candidate": candidate}, room=sid))
+        self.opus_track = OpusTrack()
+
+        @self.pc.on("icecandidate")
+        def on_icecandidate(candidate):
+            sio.emit("ice_candidate", {"candidate": candidate}, room=sid)
 
         @self.pc.on("track")
         def on_track(track):
@@ -113,6 +570,9 @@ class WebRTCConnection:
         description = RTCSessionDescription(sdp=browser_sdp["sdp"], type=browser_sdp["type"])
 
         await self.pc.setRemoteDescription(description)
+
+        self.pc.addTrack(self.opus_track)
+
         await self.pc.setLocalDescription(await self.pc.createAnswer())
 
         return self.pc.localDescription
@@ -314,6 +774,8 @@ class Session:
         await sio.emit("add_chat_message", {"id": line.id, "sender": line.sender, "message": line.message}, room=self.sid)
 
         self.line_in_progress = None
+
+        streamed_audio(message, self.rtc_peer_connection.opus_track.opus_queue)
 
     async def get_response(self):
         prompt_messages = self.chat.to_prompt()
