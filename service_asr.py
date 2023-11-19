@@ -91,6 +91,7 @@ class ASRService:
             seek_step=20 # Speed up by seeking this many ms at a time
         )
 
+        # Ignore empty audio
         if len(chunks) <= 0:
             return None
 
@@ -110,6 +111,10 @@ class ASRService:
         pcm_data = resampler.process(
             np.array(float_audio),
             self.whisper_sample_rate / input_sample_rate)
+
+        # Ignore very short audio clips
+        if len(pcm_data) / self.whisper_sample_rate < 0.5:
+            return None
 
         return pcm_data
 

@@ -195,15 +195,6 @@ function stopEventPropagationById(elementId) {
     }
 }
 
-/* Elements that should not trigger recording */
-stopEventPropagationById('conversation');
-stopEventPropagationById('textInput');
-stopEventPropagationById('sendButton');
-stopEventPropagationById('social-links');
-stopEventPropagationById('nameButton');
-stopEventPropagationById('user-name');
-stopEventPropagationById('ai-name');
-
 let from_key = false;
 
 document.body.onkeydown = function(e) {
@@ -455,9 +446,15 @@ document.getElementById("ai-name").addEventListener("change", function() {
     console.log("AI's name is now " + aiName);
 });
 
+document.getElementById("use-vision").addEventListener("change", function() {
+    let useVision = document.getElementById("use-vision").checked;
+    socket.emit("use_vision", { value: useVision });
+});
+
 document.getElementById("nameButton").addEventListener("click", function() {
     let userName = document.getElementById("user-name").value;
     let aiName = document.getElementById("ai-name").value;
+    let useVision = document.getElementById("use-vision").checked;
     console.log("Submitted: User's name is " + userName + ", AI's name is " + aiName);
     if (userName.length > 0) {
         socket.emit("user_name_message", { name: userName });
@@ -465,4 +462,16 @@ document.getElementById("nameButton").addEventListener("click", function() {
     if (aiName.length > 0) {
         socket.emit("ai_name_message", { name: aiName });
     }
+    socket.emit("use_vision", { value: useVision });
 });
+
+/* Elements that should not trigger recording */
+stopEventPropagationById('conversation');
+stopEventPropagationById('textInput');
+stopEventPropagationById('sendButton');
+stopEventPropagationById('social-links');
+stopEventPropagationById('nameButton');
+stopEventPropagationById('user-name');
+stopEventPropagationById('ai-name');
+stopEventPropagationById('use-vision');
+stopEventPropagationById('name-entry-container');

@@ -265,7 +265,6 @@ class ChatManager:
 
         return prompt_messages
 
-
 # Sessions
 
 class Session:
@@ -279,6 +278,11 @@ class Session:
         self.chat = ChatManager()
         self.line_in_progress = None
         self.last_push_time = time.time()
+        self.use_vision = True
+
+    def on_vision_toggle(self, toggle):
+        self.use_vision = toggle
+        logger.info(f"Use Vision toggle = {self.use_vision}")
 
     async def cleanup(self):
         if self.rtc_peer_connection:
@@ -292,7 +296,7 @@ class Session:
         line.message = message
 
         t = time.time()
-        if t - self.last_push_time > 1.0:
+        if t - self.last_push_time > 0.2:
             self.last_push_time = t
 
             await sio.emit("add_chat_message", {"id": line.id, "sender": line.sender, "message": line.message}, room=self.sid)
@@ -315,7 +319,10 @@ class Session:
         prompt_messages = self.chat.to_prompt()
 
         #logger.info(f"prompt_messages = {prompt_messages}")
-        await llm_runner.CompletionBegin(prompt_messages)
+        if self.use_vision:
+            await llm_runner.VisionCompletionBegin(prompt_messages)
+        else:
+            await llm_runner.TextCompletionBegin(prompt_messages)
 
         text = ""
 
@@ -450,14 +457,16 @@ async def user_name_message(sid, data):
     session = sessions.find_session_by_sid(sid)
     if session:
         logger.info(f"Received User Name message from {sid}: {data}")
-        session.user_name = data.get(data["name"], session.user_name)
+        # Vision model does not support this yet
+        #session.user_name = data.get(data["name"], session.user_name)
 
 @sio.event
 async def ai_name_message(sid, data):
     session = sessions.find_session_by_sid(sid)
     if session:
         logger.info(f"Received AI Name message from {sid}: {data}")
-        session.ai_name = data.get(data["name"], session.ai_name)
+        # Vision model does not support this yet
+        #session.ai_name = data.get(data["name"], session.ai_name)
 
 @sio.event
 async def record_message(sid, data):
@@ -514,6 +523,12 @@ async def cancel_message(sid, data):
     if session:
         # FIXME
         await sio.emit("allow_message", {}, room=sid)
+
+@sio.event
+async def use_vision(sid, data):
+    session = sessions.find_session_by_sid(sid)
+    if session:
+        session.on_vision_toggle(data.get("value"))
 
 # HTTP server
 

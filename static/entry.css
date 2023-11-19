@@ -226,6 +226,13 @@
 .input-group label {
     width: 80px;
     font-weight: bold;
+    text-align: right;
+    margin-right: 10px;
+}
+
+.input-group checkbox {
+    display: flex;
+    align-items: center;
 }
 
 #name-entry input {
