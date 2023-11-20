@@ -35,6 +35,8 @@ openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 36
 # Press enter to accept defaults for all questions
 ```
 
+Modify the api_key.py file to specify your OpenAI key, which you generate here: https://platform.openai.com/api-keys
+
 ## Run
 
 ```bash
