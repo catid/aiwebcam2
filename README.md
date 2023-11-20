@@ -29,12 +29,6 @@ conda activate aiwebcam
 git clone https://github.com/catid/aiwebcam2
 cd aiwebcam
 
-#sudo apt install libopenblas-dev
-#sudo apt install libopus-dev libopusfile0
-
-# Follow instructions from https://pytorch.org/get-started/locally/
-#pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-
 pip install -U -r requirements.txt
 
 openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 3650
