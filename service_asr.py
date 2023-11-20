@@ -142,6 +142,7 @@ class ASRService:
 def run_loop(command_queue: Queue, response_queue: Queue):
     service = ASRService(command_queue, response_queue)
     service.run()
+    logger.info("ASR background run loop process exiting")
 
 # Runner for the service
 # Also provides an API wrapper around the queues
@@ -158,10 +159,12 @@ class ASRServiceRunner:
         self.service_process.start()
 
     def close(self):
+        logger.info("Stopping ASR service...")
         self.command_queue.put(('stop',))
         self.service_process.join()
         self.command_queue.close()
         self.response_queue.close()
+        logger.info("ASR service stopped.")
 
     async def Transcribe(self, pcm_data_array, channels, sample_rate):
         async with self.lock:

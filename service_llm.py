@@ -93,6 +93,7 @@ class LLMService:
 def run_loop(command_queue: Queue, response_queue: Queue):
     service = LLMService(command_queue, response_queue)
     service.run()
+    logger.info("LLM background run loop process exiting")
 
 # Runner for the service
 # Also provides an API wrapper around the queues
@@ -109,10 +110,12 @@ class LLMServiceRunner:
         self.service_process.start()
 
     def close(self):
+        logger.info("Stopping LLM service...")
         self.command_queue.put(('stop',))
         self.service_process.join()
         self.command_queue.close()
         self.response_queue.close()
+        logger.info("LLM service stopped.")
 
     async def VisionCompletionBegin(self, prompt_messages):
         async with self.lock:
