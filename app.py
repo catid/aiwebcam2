@@ -74,7 +74,7 @@ class CustomAudioStream(MediaStreamTrack):
 
         self.tts = TTSServiceRunner()
 
-        self.start_time = None
+        self.stream_time = None
 
     async def close(self):
         super().stop()
@@ -85,12 +85,14 @@ class CustomAudioStream(MediaStreamTrack):
 
         #logger.info(f"opus duration={duration} pts={packet.pts}")
 
-        if self.start_time is None:
-            self.start_time = time.time() - duration
-        else:
-            wait = self.start_time + duration - time.time()
+        if self.stream_time is None:
+            self.stream_time = time.time()
+
+        wait = self.stream_time - time.time()
+        if wait > 0.001:
             await asyncio.sleep(wait)
 
+        self.stream_time += duration
         return packet
 
 class WebRTCConnection:

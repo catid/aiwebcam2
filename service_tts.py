@@ -52,7 +52,7 @@ def read_opus_id_page(buffer, offset):
 
     (magic_signature, version, channel_count, pre_skip, input_sample_rate, output_gain, channel_mapping) = struct.unpack_from(opus_head_format, buffer, offset)
 
-    #input_sample_rate *= 2
+    input_sample_rate *= 2
 
     # Convert bytes to a proper string for the magic signature
     magic_signature = magic_signature.decode('utf-8')
@@ -275,7 +275,7 @@ class TTSService:
 
             sample_count = 0
             for frame in self.codec.decode(av.packet.Packet(chunk)):
-                sample_count += frame.samples // 2
+                sample_count += frame.samples
 
             duration = sample_count / self.sample_rate
 
