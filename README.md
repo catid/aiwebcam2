@@ -1,8 +1,6 @@
-# AI Webcam2
+# AI Webcam
 
-Fully-interactive AI assistant you can run at home!
-
-This is my second attempt at implementing this.  It was too much work for a Python side project last time, but now that OpenAI has provided implementations for vision and TTS it's very easy to get running now.
+Fully-interactive webcam AI assistant you can run at home!
 
 Implemented with latest Whisper3 + GPT-4-Vision + OpenAI TTS and a WebRTC browser front-end for speed.
 
