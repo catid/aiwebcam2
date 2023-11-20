@@ -10,6 +10,8 @@ Implemented with latest Whisper3 + GPT-4-Vision + OpenAI TTS and a WebRTC browse
 
 Demo here: https://www.youtube.com/watch?v=G_L8t3EQMcs
 
+There is an accompanying blog post here: https://catid.io/posts/aiwebcam/
+
 It's tested with only Chrome on Windows and an Ubuntu Linux server so far.  I've tried using my cellphone and the TTS works but the WebRTC microphone is not working yet.
 
 ## Prerequisites
