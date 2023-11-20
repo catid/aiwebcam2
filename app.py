@@ -32,8 +32,8 @@ from PIL import Image
 import base64
 
 import numpy as np
-import time
-
+import time, datetime
+from zoneinfo import ZoneInfo
 
 # WebRTC Connection
 
@@ -307,13 +307,18 @@ class ChatManager:
                     ],
                 })
 
+        local_dt = datetime.datetime.utcnow()
+        date_time_string = local_dt.strftime("%A, %B %d, %Y %H:%M:%S %Z UTC")
+
+        print(date_time_string)
+
         if has_image:
             system_message = {
                 "role": "system",
                 "content": [
                     {
                         "type": "text",
-                        "text": "You are a helpful AI assistant that can see the user."
+                        "text": f"You are a helpful AI assistant that can see the user.  The current date and time is {date_time_string}"
                     },
                 ],
             }
@@ -323,7 +328,7 @@ class ChatManager:
                 "content": [
                     {
                         "type": "text",
-                        "text": "You are a helpful AI assistant."
+                        "text": f"You are a helpful AI assistant.  The current date and time is {date_time_string}"
                     },
                 ],
             }
