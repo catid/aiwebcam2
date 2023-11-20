@@ -10,6 +10,8 @@ Implemented with latest Whisper3 + GPT-4-Vision + OpenAI TTS and a WebRTC browse
 
 Demo here: https://www.youtube.com/watch?v=G_L8t3EQMcs
 
+It's tested with only Chrome on Windows and an Ubuntu Linux server so far.  I've tried using my cellphone and the TTS works but the WebRTC microphone is not working yet.
+
 ## Prerequisites
 
 Designed for Ubuntu server with an Nvidia GPU.  It might work with other setups, but I have only tested this one.
