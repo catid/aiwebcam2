@@ -10,7 +10,16 @@ Implemented with latest Whisper3 + GPT-4-Vision + OpenAI TTS and a WebRTC browse
 
 Demo here: https://www.youtube.com/watch?v=G_L8t3EQMcs
 
-It's tested with only Chrome on Windows and an Ubuntu Linux server so far.  I've tried using my cellphone and the TTS works but the WebRTC microphone is not working yet.
+Future work:
+
+* Add a cancel button so the AI does not talk over you.
+* Improve the HTML render frame and UI in general to be more usable with resizeable frames and copy buttons for generated code.
+* Have a button to switch between desktop apps and user's webcam.
+* Support for other browsers and iPhone.
+* Use Unreal engine to generate a real-time lip-synced avatar for the AI running on the server.
+* Listen to audio and decide when to respond more intelligently.
+* Integrate with a Zoom client to allow the AI to join teleconferences and reply.
+
 
 ## Prerequisites
 
