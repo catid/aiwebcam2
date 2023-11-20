@@ -8,6 +8,8 @@ Implemented with latest Whisper3 + GPT-4-Vision + OpenAI TTS and a WebRTC browse
 
 ![Logo](static/logo256.png)
 
+Demo here: https://www.youtube.com/watch?v=G_L8t3EQMcs
+
 ## Prerequisites
 
 Designed for Ubuntu server with an Nvidia GPU.  It might work with other setups, but I have only tested this one.
