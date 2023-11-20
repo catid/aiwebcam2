@@ -10,6 +10,8 @@ Implemented with latest Whisper3 + GPT-4-Vision + OpenAI TTS and a WebRTC browse
 
 Demo here: https://www.youtube.com/watch?v=G_L8t3EQMcs
 
+There is an accompanying blog post here: https://catid.io/posts/aiwebcam/
+
 Future work:
 
 * Add a cancel button so the AI does not talk over you.
@@ -19,7 +21,6 @@ Future work:
 * Use Unreal engine to generate a real-time lip-synced avatar for the AI running on the server.
 * Listen to audio and decide when to respond more intelligently.
 * Integrate with a Zoom client to allow the AI to join teleconferences and reply.
-
 
 ## Prerequisites
 
