@@ -66,29 +66,6 @@ class VideoReceiver(VideoStreamTrack):
 
         return frame
 
-from aiortc.contrib.media import MediaRelay
-
-class CustomAudioStream2(MediaStreamTrack):
-    kind = "audio"
-    
-    def __init__(self):
-        super().__init__()  # don't forget this!
-
-        self.tts = TTSServiceRunner()
-
-        self.relay = MediaRelay()
-
-    async def close(self):
-        super().stop()
-        self.tts.close()
-
-    async def recv(self):
-        packet, duration = self.tts.poll_packet()
-
-        relayed_frame = await self.relay.relay(packet)
-
-        return relayed_frame
-
 class CustomAudioStream(MediaStreamTrack):
     kind = "audio"
     
@@ -109,10 +86,9 @@ class CustomAudioStream(MediaStreamTrack):
         #logger.info(f"opus duration={duration} pts={packet.pts}")
 
         if self.stream_time is None:
-            self.stream_time = time.time() - 1.0
+            self.stream_time = time.time()
 
         wait = self.stream_time - time.time()
-        #if wait > 0.001:
         await asyncio.sleep(wait)
 
         self.stream_time += duration
