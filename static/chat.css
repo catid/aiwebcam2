@@ -33,36 +33,36 @@
     cursor: pointer;
 }
 
-/* AI> Hello */
+/* assistant> Hello */
 
-.ai-tag {
+.assistant-tag {
     color: #ff0000;
     font-family: 'Fira Code', monospace;
 }
 
-.ai-separator {
+.assistant-separator {
     color: white;
     font-family: 'Fira Code', monospace;
 }
 
-.ai-message {
+.assistant-message {
     color: #fdb3c6; /* Bright White-Orange for AI */
     font-family: 'Fira Code', monospace;
 }
 
-/* Human> Hello */
+/* user> Hello */
 
-.human-tag {
+.user-tag {
     color: #ff9900;
     font-family: 'Helvetica', sans-serif;
 }
 
-.human-separator {
+.user-separator {
     color: white;
     font-family: 'Helvetica', sans-serif;
 }
 
-.human-message {
+.user-message {
     color: #ffd3b0; /* Bright White-Pink for Human */
     font-family: 'Helvetica', sans-serif;
 }

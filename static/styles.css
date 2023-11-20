@@ -77,7 +77,6 @@ body {
     overflow: auto;
     border: 2px solid lime;
     padding: 10px;
-    color: lime;
     font-size: 1.2em;
     white-space: pre-line;
     min-height: 200px;

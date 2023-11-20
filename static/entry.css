@@ -269,3 +269,32 @@
     border-color: #aaaaaa;
     cursor: not-allowed;
 }
+
+#desktopButton {
+    display: inline-block;
+    padding: 0.5em 1em;
+    text-decoration: none;
+    border-radius: 4px;
+    color: #ffffff;
+    background-image: -webkit-linear-gradient(#67fd8c 0%, #67ff88 100%);
+    background-image: linear-gradient(#67fd7b 0%, #67ff80 100%);
+    box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.29);
+    border-bottom: solid 3px #5eca7e;
+    font-size: 16px;
+}
+
+#desktopButton:active {
+    -ms-transform: translateY(4px);
+    -webkit-transform: translateY(4px);
+    transform: translateY(4px);
+    box-shadow: 0px 0px 1px rgba(0, 0, 0, 0.2);
+    border-bottom: none;
+}
+
+#desktopButton:disabled {
+    pointer-events: none;
+    color: #999999;
+    background-color: #cccccc;
+    border-color: #aaaaaa;
+    cursor: not-allowed;
+}

@@ -84,17 +84,87 @@ function removeChatMessage(id) {
     messages.splice(index, 1);
 }
 
-function addChatMessage(id, sender, message) {
+function escapeHTML(html) {
+    return html
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+const renderer = new marked.Renderer();
+
+// Override the paragraph function
+renderer.paragraph = function(text) {
+    // Instead of wrapping in <p> tags, just return the text.
+    // You could also use a different tag here if you prefer.
+    return text + '\n'; // Add a newline character to maintain separation
+};
+
+marked.setOptions({
+    renderer: renderer
+  });
+
+my_marked = new marked.Marked({
+    renderer: renderer,
+    async: true
+  })
+    .use(markedCodePreview());
+
+function replaceIframeWithMessageContent(message) {
+    // Regular expression to extract the HTML content from the message
+    const htmlRegex = /<html[\s\S]*<\/html>/i;
+    const htmlMatch = message.match(htmlRegex);
+
+    // Check if the message contains an HTML document
+    if (htmlMatch) {
+        // Get the iframe container
+        var container = document.getElementById('iframeContainer');
+
+        // Delete any existing iframes
+        while (container.firstChild) {
+            container.removeChild(container.firstChild);
+        }
+
+        // Create a new iframe
+        var iframe = document.createElement('iframe');
+        iframe.style.display = 'none'; // Hide the iframe initially
+
+        // Append the new iframe to the container
+        container.appendChild(iframe);
+
+        // Get the iframe's document
+        var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+
+        // Write the extracted HTML content to the new iframe
+        iframeDoc.open();
+        iframeDoc.write(htmlMatch[0]);
+        iframeDoc.close();
+
+        // Show the iframe after the content is loaded
+        iframe.style.display = '';
+    } else {
+        console.error('No valid HTML content found in the message.');
+    }
+}
+
+async function addChatMessage(id, sender, message) {
     var conversation = document.getElementById('conversation');
     var messageElement = document.createElement('div');
 
     messageElement.className = 'chat-text';
-    
+
+    // FIXME: Fun hack to generate HTML visualizations
+    replaceIframeWithMessageContent(message);
+
+    parsed_message = await my_marked.parse(message);
+
     // Message
     var messagePart = document.createElement('p');
     name_tag = '<span class="' + sender.toLowerCase() + '-tag">' + sender + '</span>';
     separator = '<span class="' + sender.toLowerCase() + '-separator">&gt; </span>';
-    messageContent = '<span class="' + sender.toLowerCase() + '-message">' + message + '</span>';
+    messageContent = '<span class="' + sender.toLowerCase() + '-message">' + parsed_message + '</span>';
     messagePart.innerHTML = name_tag + separator + messageContent;
     messageElement.appendChild(messagePart);
 
@@ -310,7 +380,7 @@ socket.on("remove_chat_message", async (data) => {
 });
 socket.on("add_chat_message", async (data) => {
     console.log("Received add_chat message:", data);
-    addChatMessage(data.id, data.sender, data.message);
+    await addChatMessage(data.id, data.sender, data.message);
 });
 
 socket.on("allow_message", async (data) => {
@@ -463,6 +533,46 @@ document.getElementById("nameButton").addEventListener("click", function() {
         socket.emit("ai_name_message", { name: aiName });
     }
     socket.emit("use_vision", { value: useVision });
+});
+
+// Function to replace the video track in the peer connection
+async function replaceVideoTrack(stream) {
+    // Get the new video track from the stream
+    const videoTrack = stream.getVideoTracks()[0];
+  
+    // Find the sender that is transmitting the current video track
+    const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+  
+    if (sender) {
+      // Replace the track with the new one
+      sender.replaceTrack(videoTrack);
+    } else {
+      // If there's no video sender, add a new one
+      peerConnection.addTrack(videoTrack, stream);
+    }
+}
+
+document.getElementById('desktopButton').addEventListener('click', function() {
+    if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+        // Request desktop sharing
+        navigator.mediaDevices.getDisplayMedia({ video: true })
+            .then(function(stream) {
+                // You now have a stream of the desktop
+                // Here you would typically attach it to a video element or handle it further
+                console.log('Got desktop stream:', stream);
+
+                replaceVideoTrack(stream)
+
+                const video = document.getElementById("video");
+                video.srcObject = stream;
+            })
+            .catch(function(error) {
+                // Handle errors, for example, the user denied the request
+                console.error('Error getting display media:', error);
+            });
+    } else {
+        alert('getDisplayMedia API is not supported by this browser.');
+    }
 });
 
 /* Elements that should not trigger recording */

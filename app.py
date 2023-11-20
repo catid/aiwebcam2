@@ -66,6 +66,29 @@ class VideoReceiver(VideoStreamTrack):
 
         return frame
 
+from aiortc.contrib.media import MediaRelay
+
+class CustomAudioStream2(MediaStreamTrack):
+    kind = "audio"
+    
+    def __init__(self):
+        super().__init__()  # don't forget this!
+
+        self.tts = TTSServiceRunner()
+
+        self.relay = MediaRelay()
+
+    async def close(self):
+        super().stop()
+        self.tts.close()
+
+    async def recv(self):
+        packet, duration = self.tts.poll_packet()
+
+        relayed_frame = await self.relay.relay(packet)
+
+        return relayed_frame
+
 class CustomAudioStream(MediaStreamTrack):
     kind = "audio"
     
@@ -86,11 +109,11 @@ class CustomAudioStream(MediaStreamTrack):
         #logger.info(f"opus duration={duration} pts={packet.pts}")
 
         if self.stream_time is None:
-            self.stream_time = time.time()
+            self.stream_time = time.time() - 1.0
 
         wait = self.stream_time - time.time()
-        if wait > 0.001:
-            await asyncio.sleep(wait)
+        #if wait > 0.001:
+        await asyncio.sleep(wait)
 
         self.stream_time += duration
         return packet
@@ -229,18 +252,10 @@ class ChatManager:
                 return True
         return False
 
-    def to_prompt(self):
+    def to_prompt(self, use_vision):
         prompt_messages = []
 
-        prompt_messages.append({
-            "role": "system",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "You are a helpful AI assistant that can see the user."
-                },
-            ],
-        })
+        has_image = False
 
         for i, line in enumerate(self.chat_lines):
             image = None
@@ -255,7 +270,7 @@ class ChatManager:
                     image = line.image
                     detail = "high"
 
-            if image is not None:
+            if image is not None and use_vision:
                 # If the line contains the word "look":
                 if re.search(r"\blook\b", line.message, re.IGNORECASE):
                     detail = "high"
@@ -303,6 +318,8 @@ class ChatManager:
                         }
                     ],
                 })
+
+                has_image = True
             else:
                 prompt_messages.append({
                     "role": line.sender,
@@ -314,9 +331,88 @@ class ChatManager:
                     ],
                 })
 
+        if has_image:
+            system_message = {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "You are a helpful AI assistant that can see the user."
+                    },
+                ],
+            }
+        else:
+            system_message = {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "You are a helpful AI assistant."
+                    },
+                ],
+            }
+        prompt_messages.insert(0, system_message)
+
         return prompt_messages
 
 # Sessions
+
+class TextParser:
+    def __init__(self):
+        self.next_spoken_offset = 0
+        self.found_newline = False
+
+    async def on_message_part(self, message, pc):
+        if self.found_newline:
+            return
+
+        if not pc:
+            return
+        tts = pc.opus_track.tts
+        if not tts:
+            return
+
+        message = message[self.next_spoken_offset:]
+
+        last_index = message.find("\n")
+        if last_index != -1:
+            # Truncate to before the newline and speak it all.
+            ready_text = message[:last_index]
+            self.found_newline = True
+        else:
+            # Break at the last sentence ending
+            substrings = [". ", ": ", "! ", "? "]
+            last_indices = [message.rfind(substring) for substring in substrings]
+            last_index = max(last_indices)
+            if last_index == -1:
+                return
+            ready_text = message[:last_index+2]
+            self.next_spoken_offset += last_index + 2
+
+        ready_text = ready_text.strip()
+
+        if ready_text:
+            await tts.Speak(ready_text)
+
+    async def on_message(self, message, pc):
+        if not pc:
+            return
+        tts = pc.opus_track.tts
+        if not tts:
+            return
+
+        if not self.found_newline:
+            def truncate_at_newline(s):
+                return s.split('\n', 1)[0]
+
+            message = truncate_at_newline(message)
+            message = message[self.next_spoken_offset:].strip()
+
+            if message:
+                await tts.Speak(message)
+
+        self.next_spoken_offset = 0
+        self.found_newline = False
 
 class Session:
     def __init__(self, sid):
@@ -329,7 +425,8 @@ class Session:
         self.chat = ChatManager()
         self.line_in_progress = None
         self.last_push_time = time.time()
-        self.use_vision = True
+        self.use_vision = False
+        self.text_parser = TextParser()
 
     def on_vision_toggle(self, toggle):
         self.use_vision = toggle
@@ -346,6 +443,8 @@ class Session:
         line = self.line_in_progress
         line.message = message
 
+        await self.text_parser.on_message_part(message, self.rtc_peer_connection)
+
         t = time.time()
         if t - self.last_push_time > 0.2:
             self.last_push_time = t
@@ -360,16 +459,16 @@ class Session:
         line = self.line_in_progress
         line.message = message
 
+        await self.text_parser.on_message(message, self.rtc_peer_connection)
+
         self.last_push_time = time.time()
 
         await sio.emit("add_chat_message", {"id": line.id, "sender": line.sender, "message": line.message}, room=self.sid)
 
         self.line_in_progress = None
 
-        await self.rtc_peer_connection.opus_track.tts.Speak(message)
-
     async def get_response(self):
-        prompt_messages = self.chat.to_prompt()
+        prompt_messages = self.chat.to_prompt(self.use_vision)
 
         #logger.info(f"prompt_messages = {prompt_messages}")
         if self.use_vision:

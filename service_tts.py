@@ -52,6 +52,7 @@ def read_opus_id_page(buffer, offset):
 
     (magic_signature, version, channel_count, pre_skip, input_sample_rate, output_gain, channel_mapping) = struct.unpack_from(opus_head_format, buffer, offset)
 
+    # FIXME: Seeing 24 kHz here, but this plays back much too slow in the browser
     input_sample_rate *= 2
 
     # Convert bytes to a proper string for the magic signature
@@ -146,10 +147,16 @@ class OpusFileSplitter:
         self.audio_page_boundaries = audio_pages
 
     # Returns None if no more data is available
-    def get_page(self, index):
+    def get_page(self, index, buffer_complete):
         boundaries = self.audio_page_boundaries
-        if index >= len(boundaries):
-            return None
+        if buffer_complete:
+            if index >= len(boundaries):
+                return None
+        else:
+            # Still streaming the buffer in so we need to avoid touching the last one in the file for now
+            if index + 1 >= len(boundaries):
+                return None
+
         bytes_start = boundaries[index]
         end = index + 1
         if end >= len(boundaries):
@@ -185,7 +192,10 @@ class OpusFileSplitter:
 import api_key
 import requests
 
-def streamed_audio(input_text, callback, voice='alloy', model='tts-1', speed=1.0):
+# FIXME: Other values sound bad =(  I don't think it's a bug in my code?
+tts_speed = 1.0
+
+def streamed_audio(input_text, callback, voice='alloy', model='tts-1', speed=tts_speed):
     #t0 = time.time()
 
     # OpenAI API endpoint and parameters
@@ -209,11 +219,11 @@ def streamed_audio(input_text, callback, voice='alloy', model='tts-1', speed=1.0
         buffer = b''
         next_page_index = 0
 
-        def queue_results(callback, page_index, parsed):
+        def queue_results(callback, page_index, parsed, buffer_complete):
             if not parsed.info:
                 return False
 
-            chunks = parsed.get_page(page_index)
+            chunks = parsed.get_page(page_index, buffer_complete)
 
             if not chunks:
                 return False
@@ -230,11 +240,11 @@ def streamed_audio(input_text, callback, voice='alloy', model='tts-1', speed=1.0
             buffer += chunk
 
             parsed = OpusFileSplitter(buffer)
-            while queue_results(callback, next_page_index, parsed):
+            while queue_results(callback, next_page_index, parsed, buffer_complete=False):
                 next_page_index += 1
 
         parsed = OpusFileSplitter(buffer)
-        while queue_results(callback, next_page_index, parsed):
+        while queue_results(callback, next_page_index, parsed, buffer_complete=True):
             next_page_index += 1
 
     return True
@@ -243,7 +253,8 @@ def streamed_audio(input_text, callback, voice='alloy', model='tts-1', speed=1.0
 
 import av, fractions
 
-time_base = 90000
+# RTP timebase needs to be 48kHz: https://datatracker.ietf.org/doc/rfc7587/
+time_base = 48000
 time_base_fraction = fractions.Fraction(1, time_base)
 
 class TTSService:
@@ -322,7 +333,9 @@ class TTSServiceRunner:
         logger.info("Stopping background TTS worker...")
         self.command_queue.put(('stop',))
         self.service_process.join()
+        logger.info("Closing command_queue...")
         self.command_queue.close()
+        logger.info("Closing response_queue...")
         self.response_queue.close()
         logger.info("Stopped background TTS worker.")
 
@@ -331,10 +344,13 @@ class TTSServiceRunner:
 
         packet = av.packet.Packet(chunk)
         packet.pts = self.next_pts
+        packet.dts = self.next_pts
         packet.time_base = time_base_fraction
 
         pts_count = round(duration_seconds * time_base)
         self.next_pts += pts_count
+
+        #logger.info(f"silence pts_count = {pts_count}")
 
         return packet
 
@@ -346,6 +362,7 @@ class TTSServiceRunner:
 
             packet = av.packet.Packet(chunk)
             packet.pts = self.next_pts
+            packet.dts = self.next_pts
             packet.time_base = time_base_fraction
 
             self.next_pts += pts_count

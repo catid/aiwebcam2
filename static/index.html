@@ -9,6 +9,26 @@
     <link rel="stylesheet" type="text/css" href="entry.css">
     <link rel="stylesheet" type="text/css" href="video.css">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moo/moo.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/json-loose/dist/index.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/attributes-parser/dist/index.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked-code-preview/dist/index.umd.min.js"></script>
+
+    <style>
+        .full-width-iframe-container {
+          width: 100%; /* Full width of the page */
+          min-height: 600px; /* Minimum height of 600 pixels */
+          overflow: hidden; /* Prevents scrollbars if the iframe content fits within the container */
+        }
+      
+        .full-width-iframe {
+          width: 100%; /* Full width of the container */
+          height: 100%; /* Full height of the container */
+          border: none; /* Optional: removes the default iframe border */
+        }
+    </style>
 </head>
 <body>
     <div id="body-content">
@@ -27,7 +47,7 @@
             </audio>
         </div>
 
-        <div id="instructions">
+        <div id="instructions" style="display: none;">
             Click the page to speak to the model.  Release the mouse to execute the query.
             Include "look" to increase webcam resolution (uses more tokens).
             Include "remember" to increase webcam resolution and keep the image on the timeline.
@@ -50,19 +70,25 @@
             <div class="input-fields">
                 <div class="input-group">
                     <label for="user-name">Your Name:</label>
-                    <input type="text" id="user-name" name="user-name" value="Human">
+                    <input type="text" id="user-name" name="user-name" value="user">
                 </div>
                 <div class="input-group">
                     <label for="ai-name">AI Name:</label>
-                    <input type="text" id="ai-name" name="ai-name" value="AI">
+                    <input type="text" id="ai-name" name="ai-name" value="assistant">
                 </div>
                 <div class="input-group">
                     <label for="model-selection">Model:</label>
-                    <input type="checkbox" checked="True" id="use-vision" name="model-selection">
+                    <input type="checkbox" id="use-vision" name="model-selection">
                     <label for="vision-model">Use Vision</label>
                 </div>
             </div>
-            <button id="nameButton">Change</button>
+            <div class="input-group">
+                <button id="nameButton">Change</button>
+                <button id="desktopButton">Share Desktop</button>
+            </div>
+        </div>
+        <div id="iframeContainer" class="full-width-iframe-container">
+            If the AI generates some HTML it will be rendered here.
         </div>
         <div id="social-links-container">
             <div id="social-links">
