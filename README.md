@@ -1,4 +1,4 @@
-# AI Webcam2
+# AI Webcam
 
 Fully-interactive AI assistant you can run at home!
 
