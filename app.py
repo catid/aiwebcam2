@@ -192,10 +192,14 @@ class ChatLine:
         self.base64_image = None
 
 def convert_yuv420_to_ycbcr(data, w, h):
+    data1d = data.reshape(-1)
+
     # Extract Y, U, and V channels
-    Y = data[:h]
-    U = data[h:(h + h//4)].reshape((h // 2, w // 2))
-    V = data[(h + h//4):].reshape((h // 2, w // 2))
+    Y_end = w*h
+    Y = data1d[:Y_end].reshape(h, w)
+    U_end = Y_end + (w // 2) * (h // 2)
+    U = data1d[Y_end:U_end].reshape((h // 2, w // 2))
+    V = data1d[U_end:].reshape((h // 2, w // 2))
 
     # Upsample U and V channels
     U_upsampled = U.repeat(2, axis=0).repeat(2, axis=1)
@@ -310,15 +314,13 @@ class ChatManager:
         local_dt = datetime.datetime.utcnow()
         date_time_string = local_dt.strftime("%A, %B %d, %Y %H:%M:%S %Z UTC")
 
-        print(date_time_string)
-
         if has_image:
             system_message = {
                 "role": "system",
                 "content": [
                     {
                         "type": "text",
-                        "text": f"You are a helpful AI assistant that can see the user.  The current date and time is {date_time_string}"
+                        "text": f"You are a helpful AI assistant that can see the user.  The current date and time is {date_time_string}.  When reporting the time or date, speak succinctly.  When telling a joke, put the whole joke on the first line."
                     },
                 ],
             }
@@ -328,7 +330,7 @@ class ChatManager:
                 "content": [
                     {
                         "type": "text",
-                        "text": f"You are a helpful AI assistant.  The current date and time is {date_time_string}"
+                        "text": f"You are a helpful AI assistant.  The current date and time is {date_time_string}.  When reporting the time or date, speak succinctly.  When telling a joke, put the whole joke on the first line."
                     },
                 ],
             }
