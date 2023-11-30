@@ -6,7 +6,7 @@ Implemented with latest Whisper3 + GPT-4-Vision + OpenAI TTS and a WebRTC browse
 
 ![Logo](static/logo256.png)
 
-Demo here: https://www.youtube.com/watch?v=G_L8t3EQMcs
+Demo here: [https://www.youtube.com/watch?v=G_L8t3EQMcs](https://www.youtube.com/watch?v=CLF_uNfBZyc)
 
 There is an accompanying blog post here: https://catid.io/posts/aiwebcam/
 
